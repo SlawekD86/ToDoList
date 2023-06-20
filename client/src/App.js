@@ -1,22 +1,26 @@
 import io from 'socket.io-client';
 import { useState, useEffect } from 'react';
-import shortid from 'shortid'
+import Header from './Header';
+import TasksSection from './TasksSection';
 
 const App = () => {
-  const [socket, setSocket] = useState('')
-  const [tasks, setTasks] = useState([])
-  const [taskName, setTaskName] = useState('')
-  
+  const [socket, setSocket] = useState('');
+  const [tasks, setTasks] = useState([]);
+
   useEffect(() => {
-    const newSocket = io(process.env.PORT || "http://localhost:8000/");
+    const newSocket = io(process.env.PORT || 'http://localhost:8000/');
     setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
   }, []);
 
-  useEffect(() =>{
-    if(socket) {
+  useEffect(() => {
+    if (socket) {
       socket.on('connect', () => {
-        console.log('Wejście TEST')
-      })
+        console.log('Connected to socket');
+      });
 
       socket.on('newTask', (task) => {
         addTask(task);
@@ -30,59 +34,26 @@ const App = () => {
         updateTasks(tasksList);
       });
     }
-  }, [socket])
+  }, [socket]);
 
-  const updateTasks = tasks => {
-    setTasks(tasks)
-  }
+  const updateTasks = (tasks) => {
+    setTasks(tasks);
+  };
 
-  const removeTask = (taskId, inStorage) => {
-    setTasks((tasks) => tasks.filter((task) => task.id !== taskId));
-    if (inStorage) {
-      socket.emit('removeTask', taskId);
-    }
-  }
-
-  const submitForm = (event) => {
-    event.preventDefault();
-    const taskData = {id: shortid(), name: taskName}
-    addTask(taskData)
-    socket.emit('newTask', taskData)
-    resetForm();
-  }
-
-  const resetForm = () => {
-    setTaskName('')
-  }
+  const removeTask = (taskId) => {
+    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
+    socket.emit('removeTask', taskId);
+  };
 
   const addTask = (task) => {
-    setTasks(tasks => [...tasks, task]);
-  }
-
-  console.log(tasks)
+    setTasks((prevTasks) => [...prevTasks, task]);
+    socket.emit('newTask', task);
+  };
 
   return (
     <div className="App">
-  
-      <header>
-        <h1>ToDoList.app</h1>
-      </header>
-  
-      <section className="tasks-section" id="tasks-section">
-        <h2>Tasks</h2>
-  
-        <ul className="tasks-section__list" id="tasks-list">
-          {tasks.map((task) => (
-            <li className="task" key={task.id}> {task.name} <button className="btn btn--red" onClick={() => removeTask(task.id, true)}>Remove</button></li>
-          ))}
-        </ul>
-  
-        <form id="add-task-form" onSubmit={submitForm}>
-          <input onChange={e => setTaskName(e.target.value)} value={taskName} className="text-input" autocomplete="off" type="text" placeholder="Type your description" id="task-name" />
-          <button className="btn" type="submit">Add</button>
-        </form>
-  
-      </section>
+      <Header />
+      <TasksSection tasks={tasks} removeTask={removeTask} addTask={addTask} />
     </div>
   );
 };
